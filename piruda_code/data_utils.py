@@ -86,96 +86,95 @@ data_dirs = {'sentiment': 'blitzer_data',
              'mnli': 'mnli_data',
              'aspect': 'absa_data'}
 
-aspect_label_mapping = {'O': 0, 'B-AS': 1, 'I-AS': 2}
+aspect_label_mapping = {'O': 0, 'B-AS': 1, 'I-AS': 1}
 
 
-def load_task_data(task, test_domain, ft, binary):
-    pkl_path = Path('piruda-models', task, test_domain, 'ft') if ft else Path('piruda-models', task)
-    all_domains = [d.name for d in pkl_path.glob('*') if d.is_dir()]
-    train_domains = [d for d in all_domains if d != test_domain]
-    X_train_domain, X_train_task, Y_train_domain, Y_train_task, X_dev_domain, X_dev_task, Y_dev_domain, Y_dev_task \
+def load_task_data(task, dev_domain, source_domains, test, data_size, seed):
+    set_str = 'test' if test else 'dev'
+    pkl_path = Path('piruda-models', task, f'{source_domains[0]}')
+    data_dir = data_dirs[task]
+    dir_name = 'all' if data_size == -1 else str(data_size)
+    seed_str = f'seed_{seed}'
+    X_train_domain, X_train_task, Y_train_domain, Y_train_task, X_test_domain, X_test_task, Y_test_domain, Y_test_task \
         = [], [], [], [], [], [], [], []
-    for i, d in enumerate(train_domains):
+    for i, d in enumerate(source_domains):
         if task in ['mnli', 'aspect']:
-            f = h5py.File(Path(pkl_path, d, 'train_parsed.pkl'), 'r')
+            f = h5py.File(Path(pkl_path, d, dir_name, seed_str, 'train_parsed.pkl'), 'r')
             domain_data = np.array(f['representations']), np.array(f['labels'])
             X_train_domain.append(domain_data[0])
             X_train_task.append(domain_data[0])
             f.close()
         else:
-            with open(Path(pkl_path, d, 'train_parsed.pkl'), 'rb') as f:
+            with open(Path(pkl_path, d, dir_name, seed_str, 'train_parsed.pkl'), 'rb') as f:
                 domain_data = pickle.load(f)
             X_train_domain.extend([t for t in domain_data[0]])
             X_train_task.extend([t for t in domain_data[0]])
-        if binary:
-            Y_train_domain.extend([0] * len(domain_data[1]))
-        else:
-            Y_train_domain.extend([i] * len(domain_data[1]))
+        Y_train_domain.extend([0] * len(domain_data[1]))
         Y_train_task.extend(domain_data[1])
         if task in ['mnli', 'aspect']:
-            f = h5py.File(Path(pkl_path, d, 'dev_parsed.pkl'), 'r')
+            f = h5py.File(Path(pkl_path, d, dir_name, seed_str, f'{set_str}_parsed.pkl'), 'r')
             domain_data = np.array(f['representations']), np.array(f['labels'])
-            X_dev_domain.append(domain_data[0])
-            X_dev_task.append(domain_data[0])
+            X_test_domain.append(domain_data[0])
+            # X_test_task.append(domain_data[0])
             f.close()
         else:
-            with open(Path(pkl_path, d, 'dev_parsed.pkl'), 'rb') as f:
+            with open(Path(pkl_path, d, dir_name, seed_str, f'{set_str}_parsed.pkl'), 'rb') as f:
                 domain_data = pickle.load(f)
-            X_dev_domain.extend([t for t in domain_data[0]])
-            X_dev_task.extend([t for t in domain_data[0]])
-        if binary:
-            Y_dev_domain.extend([0] * len(domain_data[1]))
-        else:
-            Y_dev_domain.extend([i] * len(domain_data[1]))
-        Y_dev_task.extend(domain_data[1])
-    if binary:
-        if task in ['mnli', 'aspect']:
-            f = h5py.File(Path(pkl_path, test_domain, 'train_parsed.pkl'), 'r')
-            domain_data = np.array(f['representations']), np.array(f['labels'])
-            X_train_domain.append(domain_data[0])
-            Y_train_domain.extend([1] * len(domain_data[1]))
-            f.close()
-        else:
-            with open(Path(pkl_path, test_domain, 'train_parsed.pkl'), 'rb') as f:
-                domain_data = pickle.load(f)
-            X_train_domain.extend([t for t in domain_data[0]])
-            Y_train_domain.extend([1] * len(domain_data[1]))
-        if task in ['mnli', 'aspect']:
-            f = h5py.File(Path(pkl_path, test_domain, 'dev_parsed.pkl'), 'r')
-            domain_data = np.array(f['representations']), np.array(f['labels'])
-            X_dev_domain.append(domain_data[0])
-            Y_dev_domain.extend([1] * len(domain_data[1]))
-            f.close()
-        else:
-            with open(Path(pkl_path, test_domain, 'dev_parsed.pkl'), 'rb') as f:
-                domain_data = pickle.load(f)
-            X_dev_domain.extend([t for t in domain_data[0]])
-            Y_dev_domain.extend([1] * len(domain_data[1]))
+            X_test_domain.extend([t for t in domain_data[0]])
+            # X_test_task.extend([t for t in domain_data[0]])
+        Y_test_domain.extend([0] * len(domain_data[1]))
+        # Y_test_task.extend(domain_data[1])
     if task in ['mnli', 'aspect']:
-        f = h5py.File(Path(pkl_path, test_domain, 'test_parsed.pkl'), 'r')
-        X_test, Y_test = np.array(f['representations']), np.array(f['labels'])
+        f = h5py.File(Path(pkl_path, dev_domain, dir_name, seed_str, 'train_parsed.pkl'), 'r')
+        domain_data = np.array(f['representations']), np.array(f['labels'])
+        X_train_domain.append(domain_data[0])
+        Y_train_domain.extend([1] * len(domain_data[1]))
+        f.close()
     else:
-        with open(Path(pkl_path, test_domain, 'test_parsed.pkl'), 'rb') as f:
-            X_test, Y_test = pickle.load(f)
+        with open(Path(pkl_path, dev_domain, dir_name, seed_str, 'train_parsed.pkl'), 'rb') as f:
+            domain_data = pickle.load(f)
+        X_train_domain.extend([t for t in domain_data[0]])
+        Y_train_domain.extend([1] * len(domain_data[1]))
+    if task in ['mnli', 'aspect']:
+        f = h5py.File(Path(pkl_path, dev_domain, dir_name, seed_str, f'{set_str}_parsed.pkl'), 'r')
+        domain_data = np.array(f['representations']), np.array(f['labels'])
+        X_test_domain.append(domain_data[0])
+        Y_test_domain.extend([1] * len(domain_data[1]))
+        X_test_task.extend([domain_data[0]])
+        Y_test_task.extend(domain_data[1])
+        f.close()
+    else:
+        with open(Path(pkl_path, dev_domain, dir_name, seed_str, f'{set_str}_parsed.pkl'), 'rb') as f:
+            domain_data = pickle.load(f)
+        X_test_domain.extend([t for t in domain_data[0]])
+        Y_test_domain.extend([1] * len(domain_data[1]))
+        X_test_task.extend([t for t in domain_data[0]])
+        Y_test_task.extend(domain_data[1])
+    # if task in ['mnli', 'aspect']:
+    #     f = h5py.File(Path(pkl_path, dev_domain, 'test_parsed.pkl'), 'r')
+    #     X_test, Y_test = np.array(f['representations']), np.array(f['labels'])
+    # else:
+    #     with open(Path(pkl_path, dev_domain, 'test_parsed.pkl'), 'rb') as f:
+    #         X_test, Y_test = pickle.load(f)
     X_train_domain = np.array(X_train_domain) if task not in ['mnli', 'aspect'] else np.concatenate(X_train_domain)
     X_train_task = np.array(X_train_task) if task not in ['mnli', 'aspect'] else np.concatenate(X_train_task)
     Y_train_domain = np.array(Y_train_domain)
-    X_dev_domain = np.array(X_dev_domain) if task not in ['mnli', 'aspect'] else np.concatenate(X_dev_domain)
-    X_dev_task = np.array(X_dev_task) if task not in ['mnli', 'aspect'] else np.concatenate(X_dev_task)
-    Y_dev_domain = np.array(Y_dev_domain)
-    if task not in ['mnli', 'aspect']:
-        X_test = np.array([t for t in X_test])
-        Y_test = np.array(Y_test)
-    return X_train_domain, X_train_task, Y_train_domain, Y_train_task, X_dev_domain, X_dev_task, Y_dev_domain, \
-           Y_dev_task, X_test, Y_test
+    X_test_domain = np.array(X_test_domain) if task not in ['mnli', 'aspect'] else np.concatenate(X_test_domain)
+    X_test_task = np.array(X_test_task) if task not in ['mnli', 'aspect'] else np.concatenate(X_test_task)
+    Y_test_domain = np.array(Y_test_domain)
+    # if task not in ['mnli', 'aspect']:
+    #     X_test = np.array([t for t in X_test])
+    #     Y_test = np.array(Y_test)
+    return X_train_domain, X_train_task, Y_train_domain, Y_train_task, X_test_domain, X_test_task, Y_test_domain, Y_test_task
 
 
-def load_domain_data(task, test_domain, ft, binary):
-    pkl_path = Path('piruda-models', task, test_domain, 'ft') if ft else Path('piruda-models', task)
-    all_domains = [d.name for d in pkl_path.glob('*') if d.is_dir()]
-    train_domains = [d for d in all_domains if d != test_domain]
+def load_domain_data(task, dev_domain, test_domain):
+    pkl_path = Path('piruda-models', task, f'{dev_domain}_{test_domain}')
+    data_dir = data_dirs[task]
+    relevant_domains = [d.name for d in Path('data', data_dir).glob('*') if d.is_dir() and d.name != test_domain]
+    train_domains = [d for d in relevant_domains if d != dev_domain]
     X_train, Y_train, X_dev, Y_dev = [], [], [], []
-    for i, d in enumerate(all_domains if binary else train_domains):
+    for i, d in enumerate(relevant_domains):
         if task in ['mnli', 'aspect']:
             f = h5py.File(Path(pkl_path, d, 'train_parsed.pkl'), 'r')
             domain_data = np.array(f['representations']), np.array(f['labels'])
@@ -185,10 +184,7 @@ def load_domain_data(task, test_domain, ft, binary):
             with open(Path(pkl_path, d, 'train_parsed.pkl'), 'rb') as f:
                 domain_data = pickle.load(f)
             X_train.extend([t for t in domain_data[0]])
-        if binary:
-            Y_train.extend([1 if d == test_domain else 0] * len(domain_data[1]))
-        else:
-            Y_train.extend([i] * len(domain_data[1]))
+        Y_train.extend([1 if d == dev_domain else 0] * len(domain_data[1]))
         if task in ['mnli', 'aspect']:
             f = h5py.File(Path(pkl_path, d, 'dev_parsed.pkl'), 'r')
             domain_data = np.array(f['representations']), np.array(f['labels'])
@@ -198,10 +194,7 @@ def load_domain_data(task, test_domain, ft, binary):
             with open(Path(pkl_path, d, 'dev_parsed.pkl'), 'rb') as f:
                 domain_data = pickle.load(f)
             X_dev.extend([t for t in domain_data[0]])
-        if binary:
-            Y_dev.extend([1 if d == test_domain else 0] * len(domain_data[1]))
-        else:
-            Y_dev.extend([i] * len(domain_data[1]))
+        Y_dev.extend([1 if d == dev_domain else 0] * len(domain_data[1]))
     X_train = np.concatenate(X_train) if task in ['mnli', 'aspect'] else np.array(X_train)
     Y_train = np.array(Y_train)
     X_dev = np.concatenate(X_dev) if task in ['mnli', 'aspect'] else np.array(X_dev)

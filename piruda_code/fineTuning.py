@@ -46,18 +46,33 @@ def compute_metrics(eval_pred):
 if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument('-task', type=str)
-    argparser.add_argument('-domain', type=str)
+    argparser.add_argument('-med_domain', type=str)
+    argparser.add_argument('-tar_domain', type=str)
+    argparser.add_argument('-src_domain', type=str)
+    argparser.add_argument('-data_size', type=int, default=-1)
+    argparser.add_argument('-seed', type=int)
     args = argparser.parse_args()
     task = args.task
     data = data_dict[task]
-    test_domain = args.domain
-    print(f'domain: {test_domain}')
-    pkl_path = Path('piruda-models', task)
+    med_domain = args.med_domain
+    tar_domain = args.tar_domain
+    src_domain = args.src_domain
+    data_size = args.data_size
+    seed = args.seed
+    dir_name = 'ft_models' if data_size == -1 else f'ft_models_{data_size}'
+    print(f'med domain: {med_domain}')
+    print(f'tar domain: {tar_domain}')
+    print(f'src domain: {src_domain}')
+    print(f'data size: {data_size}')
+    print(f'seed: {seed}')
+    torch.manual_seed(seed)
     data_dir = data_dirs[task]
     all_domains = [d.name for d in Path('data', data_dir).glob('*') if d.is_dir()]
-    train_domains = [d for d in all_domains if d != test_domain]
+    # source_domains = [d for d in all_domains if d != dev_domain and d != test_domain]
+    source_domains = [src_domain]
+    # assert source_domains != med_domain and source_domains != tar_domain
     train_data, dev_data = ([], []), ([], [])
-    for d in train_domains:
+    for d in source_domains:
         train_path = data['train_paths'][d]
         dev_path = data['dev_paths'][d]
         test_path = data['test_paths'][d]
@@ -65,16 +80,18 @@ if __name__ == "__main__":
             curr_train_data = pickle.load(f)
         with open(dev_path, 'rb') as f:
             curr_dev_data = pickle.load(f)
-        train_data[0].extend(curr_train_data[0])
-        train_data[1].extend(curr_train_data[1])
+        if data_size == -1:
+            data_size = int(len(curr_train_data[0]) / 2)
+        train_data[0].extend(curr_train_data[0][:data_size] + curr_train_data[0][-data_size:])
+        train_data[1].extend(curr_train_data[1][:data_size] + curr_train_data[1][-data_size:])
         dev_data[0].extend(curr_dev_data[0])
         dev_data[1].extend(curr_dev_data[1])
-    num_labels = len(set(train_data[1])) if task != 'aspect' else \
-        len(set([label for labels in train_data[1] for label in labels]))
-    pickles_root = Path('piruda-models', task, test_domain, 'ft_models')
+    num_labels = len(set(train_data[1])) if task != 'aspect' else 2
+        # len(set([label for labels in train_data[1] for label in labels]))
+    pickles_root = Path('piruda-models', task, f'{source_domains[0]}', dir_name, f'seed_{seed}')
     if not pickles_root.exists():
         pickles_root.mkdir(parents=True)
-    bert_name = 'bert-base-uncased'
+    bert_name = 'bert-base-cased'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer = BertTokenizer.from_pretrained(bert_name)
     datas = [train_data, dev_data]
@@ -82,12 +99,7 @@ if __name__ == "__main__":
         filtered_sents, filtered_labels = {}, {}
         example_idx = 0
         for sentence, label in zip(data[0], data[1]):
-            if type(sentence) == tuple:
-                if sentence[0][-1] == '.':
-                    sentence = ' '.join(sentence)
-                else:
-                    sentence = '. '.join(sentence)
-            elif type(sentence) == list:
+            if type(sentence) == list:
                 new_labels = [-100]  # ignore index for CLS token
                 for word, l in zip(sentence, label):
                     word_labels = [aspect_label_mapping[l]]
@@ -97,9 +109,12 @@ if __name__ == "__main__":
                         word_labels.extend([-100] * (len(subtokens) - 3))
                     new_labels.extend(word_labels)
                 sentence = ' '.join(sentence)
-                new_labels.extend([-100] * (128 - len(new_labels)))
-            filtered_sents[example_idx] = tokenizer(sentence, padding='max_length', truncation=True,
-                                                    max_length=128).data
+                new_labels.extend([-100] * (256 - len(new_labels)))
+            if type(sentence) == tuple:
+                filtered_sents[example_idx] = tokenizer(sentence[0], sentence[1], truncation=True, padding='max_length',
+                                                        max_length=256).data
+            else:
+                filtered_sents[example_idx] = tokenizer(sentence, truncation=True, padding='max_length', max_length=256).data
             filtered_labels[example_idx] = label if task != 'aspect' else new_labels
             example_idx += 1
         datas[i] = filtered_sents, filtered_labels
@@ -112,8 +127,9 @@ if __name__ == "__main__":
         model = AutoModelForTokenClassification.from_pretrained(bert_name, num_labels=num_labels)
     else:
         model = AutoModelForSequenceClassification.from_pretrained(bert_name, num_labels=num_labels)
-    train_args = TrainingArguments(pickles_root.__str__(), evaluation_strategy='epoch', per_device_train_batch_size=50,
-                                   save_strategy='epoch')
+
+    train_args = TrainingArguments(pickles_root.__str__(), evaluation_strategy='epoch', per_device_train_batch_size=16,
+                                   save_strategy='epoch', seed=seed)
     trainer = Trainer(model=model, args=train_args, train_dataset=train_data,
                       eval_dataset=dev_data, compute_metrics=compute_metrics)
     trainer.train()
