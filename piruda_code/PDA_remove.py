@@ -9,11 +9,8 @@ from pathlib import Path
 from argparse import ArgumentParser
 import sys
 import pickle
-from sklearn.cluster import KMeans
-# from sklearn.decomposition import PCA
-# from sklearn.manifold import TSNE
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import silhouette_score, f1_score
+from sklearn.metrics import f1_score
 import numpy as np
 import itertools
 import copy
@@ -83,25 +80,6 @@ def lnscale(neurons_list, upper_bound:float, lower_bound=0):
     scores = np.array([lnsp[neurons_list.index(i)] if i in neurons_list else 0 for i in range(768)], dtype=np.float32)
     return scores
 
-#
-# def vis_data(data, Y, i, dir, acc):
-#     transformed_data = PCA(n_components=50, random_state=1).fit_transform(data)
-#     transformed_data = TSNE(n_components=2, init='pca', random_state=1).fit_transform(transformed_data)
-#     plt.scatter(transformed_data[Y == np.array(0), 0],
-#                 transformed_data[Y == np.array(0), 1], label='0')
-#     plt.scatter(transformed_data[Y == np.array(1), 0],
-#                 transformed_data[Y == np.array(1), 1], label='1')
-#     plt.title(f'acc = {acc}')
-#     name = str(i) if i >=0 else 'src'
-#     plt.savefig(Path(dir, name))
-#     plt.close()
-
-
-def clustering(data):
-    kmeans = KMeans(n_clusters=2).fit(data)
-    labels = kmeans.labels_
-    return silhouette_score(data, labels)
-
 
 def pred_score(task, y_pred, y_true):
     if task == "aspect":
@@ -143,16 +121,10 @@ def split_test(X, Y, n):
     # i = int(n / 2)
     X_per_label = [X[Y == i] for i in range(hist.shape[0])]
     Y_per_label = [Y[Y == i] for i in range(hist.shape[0])]
-    # X_neg = X[Y == 0]
-    # X_pos = X[Y == 1]
-    # X_sampled = np.concatenate([X_neg[: i], X_pos[: i]])
     X_sampled = np.concatenate([data[: i] for i, data in zip(size_per_label, X_per_label)])
     X_rest = np.concatenate([data[i:] for i, data in zip(size_per_label, X_per_label)])
     Y_sampled = np.concatenate([data[: i] for i, data in zip(size_per_label, Y_per_label)])
     Y_rest = np.concatenate([data[i:] for i, data in zip(size_per_label, Y_per_label)])
-    # X_rest = np.concatenate([X_neg[i:], X_pos[i:]])
-    # Y_sampled = np.concatenate([Y[Y == 0][: i], Y[Y == 1][: i]])
-    # Y_rest = np.concatenate([Y[Y == 0][i:], Y[Y == 1][i:]])
     return X_sampled, Y_sampled, X_rest, Y_rest
 
 
@@ -270,10 +242,6 @@ if __name__ == "__main__":
         # cls_task.fit(X_train_task, Y_train_task)
         print(f'source domain task training classification {"f1" if task == "aspect" else "acc"}:')
         acc, preds = predict(task, cls_task, pooler, X_train_task, Y_train_task)
-        # if task == "aspect":
-        #     preds = cls_task(torch.tensor(X_train_task).to(device)).argmax(dim=1).cpu().numpy()
-        # else:
-        #     preds = cls_task(pooler(torch.tensor(X_train_task).to(device).unsqueeze(dim=1))).argmax(dim=1).cpu().numpy()
         # score = pred_score(task, preds, Y_train_task)
         print(acc)
         mod_dev = None
@@ -300,23 +268,11 @@ if __name__ == "__main__":
                         np.random.seed(seed)
                     else:
                         mod_dev = translate(ranking, curr_beta, modified_neurons, means, dev_copy, add_noise=False)
-                    # alpha = lnscale(ranking, curr_beta)[modified_neurons]
-                    # if tmp and i == 2:
-                    #     alpha = [0, 800]
-                    # modification = alpha * (means[0][modified_neurons] - means[1][modified_neurons])
-                    # relevant_features = dev_copy
-                    # relevant_features[:, modified_neurons] += modification
-                    # # dev_copy[Y_test_domain == 1] = relevant_features
-                    # mod_dev = relevant_features
                 # print(f'dev domain classification acc after translation of {i} neurons:')
                 # dev_domain_acc = cls_domain.score(dev_copy, Y_test_domain)
                 # print(dev_domain_acc)
                 # dev_task_acc = cls_task.score(mod_dev, Y_dev_task)
                 print(f'dev task classification {"f1" if task == "aspect" else "acc"} after translation of {i} neurons:')
-                # if task == "aspect":
-                #     preds = cls_task(torch.tensor(mod_dev).to(device)).argmax(dim=1).cpu().numpy()
-                # else:
-                #     preds = cls_task(pooler(torch.tensor(mod_dev).to(device).unsqueeze(dim=1))).argmax(dim=1).cpu().numpy()
                 if ensemble:
                     curr_preds = []
                     for j in range(3):
@@ -333,9 +289,6 @@ if __name__ == "__main__":
                     changed_preds = (init_preds != preds).nonzero()[0]
                 # dev_task_acc = pred_score(task, preds, Y_test_task)
                 print(task_acc)
-                # if i == 92:
-                #     important_words = changed_words(task, med_domain, init_preds, preds, Y_test_task)
-                    # print(important_words)
                 # domain_accs.append(dev_domain_acc)
                 task_accs.append(task_acc)
                 if task_acc > best_res or (task_acc == best_res and i < best_k):
@@ -353,32 +306,14 @@ if __name__ == "__main__":
                 break
         if beta == 0:
             acc, preds = predict(task, cls_task, pooler, X_rest, Y_rest)
-            # if task == "aspect":
-            #     rest_init_preds = cls_task(torch.tensor(X_rest).to(device)).argmax(dim=1).cpu().numpy()
-            # else:
-            #     rest_init_preds = cls_task(pooler(torch.tensor(X_rest).to(device).unsqueeze(dim=1))).argmax(dim=1).cpu().numpy()
-            # rest_init_acc = pred_score(task, rest_init_preds, Y_rest)
             print('left-out set init acc:')
             print(acc)
             mod_dev = translate(ranking, best_beta, ranking[:best_k], means, X_rest)
-            # modified_neurons = ranking[:best_k]
-            # alpha = lnscale(ranking, best_beta)[modified_neurons]
-            # modification = alpha * (means[0][modified_neurons] - means[1][modified_neurons])
-            # relevant_features = X_rest
-            # relevant_features[:, modified_neurons] += modification
-            # dev_copy[Y_test_domain == 1] = relevant_features
-            # mod_dev = relevant_features
             print(f'chosen params: beta={best_beta}, k={best_k}')
             print(f'left-out set {"f1" if task == "aspect" else "acc"} after translation:')
             acc, preds = predict(task, cls_task, pooler, mod_dev, Y_rest)
-            # if task == "aspect":
-            #     preds = cls_task(torch.tensor(mod_dev).to(device)).argmax(dim=1).cpu().numpy()
-            # else:
-            #     preds = cls_task(pooler(torch.tensor(mod_dev).to(device).unsqueeze(dim=1))).argmax(dim=1).cpu().numpy()
-            # rest_final_acc = pred_score(task, preds, Y_rest)
             print(acc)
 
-        # plt.plot(range(0, 200, step), domain_accs[:200])
         else:
             init_acc = round(task_accs[0], 4)
             max_acc, argmax_acc = round(np.array(task_accs).max(), 4), np.array(task_accs).argmax()

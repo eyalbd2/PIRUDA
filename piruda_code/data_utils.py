@@ -150,21 +150,12 @@ def load_task_data(task, dev_domain, source_domains, test, data_size, seed):
         Y_test_domain.extend([1] * len(domain_data[1]))
         X_test_task.extend([t for t in domain_data[0]])
         Y_test_task.extend(domain_data[1])
-    # if task in ['mnli', 'aspect']:
-    #     f = h5py.File(Path(pkl_path, dev_domain, 'test_parsed.pkl'), 'r')
-    #     X_test, Y_test = np.array(f['representations']), np.array(f['labels'])
-    # else:
-    #     with open(Path(pkl_path, dev_domain, 'test_parsed.pkl'), 'rb') as f:
-    #         X_test, Y_test = pickle.load(f)
     X_train_domain = np.array(X_train_domain) if task not in ['mnli', 'aspect'] else np.concatenate(X_train_domain)
     X_train_task = np.array(X_train_task) if task not in ['mnli', 'aspect'] else np.concatenate(X_train_task)
     Y_train_domain = np.array(Y_train_domain)
     X_test_domain = np.array(X_test_domain) if task not in ['mnli', 'aspect'] else np.concatenate(X_test_domain)
     X_test_task = np.array(X_test_task) if task not in ['mnli', 'aspect'] else np.concatenate(X_test_task)
     Y_test_domain = np.array(Y_test_domain)
-    # if task not in ['mnli', 'aspect']:
-    #     X_test = np.array([t for t in X_test])
-    #     Y_test = np.array(Y_test)
     return X_train_domain, X_train_task, Y_train_domain, Y_train_task, X_test_domain, X_test_task, Y_test_domain, Y_test_task
 
 

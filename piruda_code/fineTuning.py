@@ -46,7 +46,6 @@ def compute_metrics(eval_pred):
 if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument('-task', type=str)
-    argparser.add_argument('-med_domain', type=str)
     argparser.add_argument('-tar_domain', type=str)
     argparser.add_argument('-src_domain', type=str)
     argparser.add_argument('-data_size', type=int, default=-1)
@@ -54,13 +53,11 @@ if __name__ == "__main__":
     args = argparser.parse_args()
     task = args.task
     data = data_dict[task]
-    med_domain = args.med_domain
     tar_domain = args.tar_domain
     src_domain = args.src_domain
     data_size = args.data_size
     seed = args.seed
     dir_name = 'ft_models' if data_size == -1 else f'ft_models_{data_size}'
-    print(f'med domain: {med_domain}')
     print(f'tar domain: {tar_domain}')
     print(f'src domain: {src_domain}')
     print(f'data size: {data_size}')
@@ -70,7 +67,6 @@ if __name__ == "__main__":
     all_domains = [d.name for d in Path('data', data_dir).glob('*') if d.is_dir()]
     # source_domains = [d for d in all_domains if d != dev_domain and d != test_domain]
     source_domains = [src_domain]
-    # assert source_domains != med_domain and source_domains != tar_domain
     train_data, dev_data = ([], []), ([], [])
     for d in source_domains:
         train_path = data['train_paths'][d]

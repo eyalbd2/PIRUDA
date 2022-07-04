@@ -238,10 +238,6 @@ def probeless_vs_linear(all_betas, ensemble):
                         np.std(linear_selected), 1)
                         # if beta == const_beta:
                         #     res[src][tar] = (probeless_accs[k], linear_accs[k])
-        # print(res)
-        # sampled_str = '_sampled' if all_betas else ''
-        # with open(Path('results', f'table_res_{task}{ensemble_str}{sampled_str}.pkl'), 'wb+') as f:
-        #     pickle.dump(res, f)
     rightarrow = u"\u2192"
     for src in res.keys():
         for tar in res[src].keys():
@@ -300,25 +296,6 @@ def plot_transpose(all_betas, k=50):
             # res['linear'].append((round(linear_mean, 1), round(linear_std, 1)))
             res[source][target]['probeless_all'].append(probeless_mean)
             res[source][target]['linear_all'].append(linear_mean)
-        # init = round(np.mean(init_res, axis=0), 1)
-        # ub = round(np.mean(ub_res, axis=0), 1)
-        # p_means = np.array([r[0] for r in res["probeless"]])
-        # p_stds = np.array([r[1] for r in res["probeless"]])
-        # plt.plot(range(1,11), p_means, label='Probeless')
-        # plt.fill_between(range(1, 11), p_means - p_stds, p_means + p_stds, alpha=0.2)
-        # l_means = np.array([r[0] for r in res["linear"]])
-        # l_stds = np.array([r[1] for r in res["linear"]])
-    # plt.plot(range(1, 11), l_means, label='Linear')
-    # plt.fill_between(range(1, 11), l_means - l_stds, l_means + l_stds, alpha=0.2)
-    # plt.axhline(0., color='black', linestyle='dashed', label='Init')
-    # plt.axhline(ub, color='gray', linestyle='dashed', label='UB')
-    # plt.xlabel('\u03B2')
-    # plt.ylabel('\u0394')
-    # rightarrow = u"\u2192"
-    # plt.title(f'{source} {rightarrow} {target}, k={str(k)}')
-    # plt.legend()
-    # plt.savefig(Path(root_path, 'avg', f'k={str(k)}'))
-    # plt.close()
     rightarrow = u"\u2192"
     for src in res.keys():
         for tar in res[src].keys():
@@ -341,8 +318,6 @@ def plot_transpose(all_betas, k=50):
     plt.close()
 
 
-
-
 if __name__ == "__main__":
     # task = 'sentiment'
     one_file = True
@@ -350,8 +325,6 @@ if __name__ == "__main__":
     # probeless_vs_linear(one_file, ens)
     plot_transpose(one_file)
     # res = run_task(task)
-    # print(res)
-    # couples = [f'{s[0].capitalize()} -> {t[0].capitalize()}'for s in results.keys() for t in results[s].keys()]
 
 
 
